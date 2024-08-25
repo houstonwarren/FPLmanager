@@ -3,6 +3,8 @@
 # ---------------------------------------------------------------------------------------- #
 import requests
 import json
+from FPLmanager import CURRENT_SEASON
+
 
 __all__ = [
     'ENDPOINTS',
@@ -14,7 +16,8 @@ __all__ = [
     'get_gameweeks',
     'get_entry_history', 
     'get_entry_transfers',
-    'get_entry_picks'
+    'get_entry_picks',
+    'current_gameweek'
 ]
 
 
@@ -50,6 +53,10 @@ def get_gameweeks(gw_id):
         events = [event for event in events if event['is_current']][0]
 
     return events
+
+
+def current_gameweek():
+    return get_gameweeks('current')['id'], CURRENT_SEASON
 
 
 # ---------------------------------------- PLAYERS --------------------------------------- #

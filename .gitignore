@@ -163,3 +163,7 @@ cython_debug/
 
 # VS Code
 .vscode/
+
+# secrets
+config.yaml
+fly.toml
