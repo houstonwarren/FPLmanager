@@ -16,3 +16,7 @@ def next_gameweeks(gw, n=1):
     ) if _gw <= 38]
 
     return next_gw
+
+
+def full_name(df, first_name_col='first_name', last_name_col='second_name'):
+    return df[first_name_col] + ' ' + df[last_name_col]

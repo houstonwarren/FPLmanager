@@ -89,3 +89,4 @@ def get_entry_transfers(entry_id):
 def get_entry_picks(entry_id, gw):
     response = requests.get(f"{ENDPOINTS['entry']}{entry_id}/event/{gw}/picks/")
     return response.json()
+

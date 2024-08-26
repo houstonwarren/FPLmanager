@@ -11,6 +11,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy import Table, MetaData
 from sqlalchemy import inspect
+from FPLmanager.data.update import get_live_info
 
 
 # ------------------------------------ DB CONNECTIONS ------------------------------------ #
@@ -37,7 +38,8 @@ def query_to_dataframe(table_name):
 def update_table(table_name, df, replace=False):
     """
     Update a PostgreSQL table with data from a pandas DataFrame using SQLAlchemy.
-    Automatically detects primary keys from the table schema.
+    Automatically detects primary keys from the table schema, and updates existing rows
+    with new data, or adds new rows.
     """
     engine = get_engine()
     
@@ -119,15 +121,6 @@ def get_players(df=None, gw=None, season=CURRENT_SEASON, prior=True):
 
 
 # ----------------------------------- ADVANCED GETTERS ----------------------------------- #
-def get_most_recent_prices(gw, season=CURRENT_SEASON):
-    prices = get_prices(gw, season, prior=False)
-    prices = prices[prices['gw'] <= gw]
-    most_recent_idx = prices[['code', 'gw']].groupby('code')['gw'].idxmax()
-    prices = prices.loc[most_recent_idx].reset_index(drop=True)
-
-    return prices
-
-
 def get_most_recent_player_info(gw, season=CURRENT_SEASON):
     players = get_players(gw, season, prior=False)
     players = players[players['gw'] <= gw]
@@ -135,6 +128,35 @@ def get_most_recent_player_info(gw, season=CURRENT_SEASON):
     players = players.loc[most_recent_idx].reset_index(drop=True)
 
     return players
+
+
+def get_most_recent_prices(gw=None, season=CURRENT_SEASON):
+    if gw is None and season == CURRENT_SEASON:
+        prices = get_live_info()
+        prices = prices[['name', 'value', 'element', 'season', 'code']]
+
+    else:
+        prices = get_prices(gw=gw, season=season, prior=False)
+        prices = prices[prices['gw'] <= gw]
+        most_recent_idx = prices[['code', 'gw']].groupby('code')['gw'].idxmax()
+        prices = prices.loc[most_recent_idx].reset_index(drop=True)
+        prices = prices.drop(
+            columns=['gw']
+        )
+
+    return prices
+
+
+def get_most_recent_injuries(gw=None, season=CURRENT_SEASON):
+    if gw is None and season == CURRENT_SEASON:
+        injuries = get_live_info()
+        injuries = injuries[['name', 'code', 'element', 'position', 'season',
+       'chance_of_playing_this_round', 'chance_of_playing_next_round', 'news']]
+        injuries = injuries.sort_values(by=['name']).reset_index(drop=True)
+        return injuries
+
+    else:
+        raise ValueError("Injuries are only available for the current gameweek.")
 
 
 def get_team_id_map(season=CURRENT_SEASON, prior=True, reverse=False):

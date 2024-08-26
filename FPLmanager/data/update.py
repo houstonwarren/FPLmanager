@@ -5,7 +5,7 @@ from FPLmanager.data.db import get_players, get_fixtures, get_prices, get_teams,
     get_player_gws, update_table, get_team_id_map
 from FPLmanager.data.fplapi import get_bootstrap_data, get_fixtures_data, \
     current_gameweek, get_player_history
-from FPLmanager.utils import season_str
+from FPLmanager.utils import season_str, full_name
 
 
 # --------------------------------- CURRENT SEASON TEAMS --------------------------------- #
@@ -50,7 +50,10 @@ def updated_fixtures():
 
 
 # ------------------------------------ PLAYER REGISTRY ----------------------------------- #
-def get_current_players(bootstrap=None):
+def get_current_players(
+        bootstrap=None, subset=['name', 'code', 'element', 'position', 'season']
+    ):
+    
     if bootstrap is None:
         bootstrap = get_bootstrap_data()
     current_players = pd.DataFrame(bootstrap['elements'])
@@ -58,9 +61,11 @@ def get_current_players(bootstrap=None):
     # format bootstrap data to match player registry
     current_players['season'] = season_str(CURRENT_SEASON)
     current_players['position'] = current_players['element_type'].map(POSITIONS)
-    current_players['name'] = current_players['first_name'] + ' ' + current_players['second_name']
+    current_players['name'] = full_name(current_players)
     current_players = current_players.rename(columns={'id': 'element'})
-    current_players = current_players[['name', 'code', 'element', 'position', 'season']]
+    if subset is not None:
+        current_players = current_players[subset]
+
     return current_players
 
 
@@ -83,7 +88,6 @@ def updated_player_registry(bootstrap=None):
 
 # ----------------------------------- PLAYER gw SCORES ----------------------------------- #
 def updated_player_gw_scores(bootstrap=None):
-    current_gw, _ = current_gameweek()
     players = get_current_players(bootstrap)
     # get data
     fixtures = get_fixtures(prior=False)[['fixture', 'home_team', 'away_team']]
@@ -130,10 +134,9 @@ def updated_player_gw_scores(bootstrap=None):
 # ---------------------------------------- PRICES ---------------------------------------- #
 def updated_prices():
     player_gws = get_player_gws(prior=False)
-    prices = player_gws[['code', 'gw', 'price']]
 
     # subset only to times when player value changes
-    player_value = player_gws.copy()[['name', 'value', 'element', 'season', 'code', 'gw']].sort_values(
+    player_value = player_gws[['name', 'value', 'element', 'season', 'code', 'gw']].sort_values(
         by=['season', 'gw', 'name']
     ).reset_index(drop=True)
     player_value['value_delta'] = player_value.groupby(['code', 'season'])['value'].diff()
@@ -141,8 +144,52 @@ def updated_prices():
         (player_value['value_delta'].isna()) | (player_value['value_delta'] != 0)
     ].reset_index(drop=True)
     price_changes = price_changes.drop(columns=['value_delta'])
+    price_changes['value'] = price_changes.value.astype(int)
 
-    return prices
+    return price_changes
+
+
+# --------------------------------------- LIVE INFO -------------------------------------- #
+def get_live_prices(
+        bootstrap=None, 
+        subset=['name', 'code', 'element', 'position', 'season', 'now_cost']
+    ):
+
+    live_players = get_current_players(bootstrap, subset=subset)
+    live_players = live_players.rename(columns={'now_cost': 'value'})
+
+    return live_players
+
+
+def get_injuries(
+        bootstrap=None, 
+        subset=[
+            'name', 'code', 'element', 'position', 'season',
+            'chance_of_playing_this_round', 'chance_of_playing_next_round', 
+            'news'
+        ]
+    ):
+
+    live_players = get_current_players(
+        bootstrap, subset=subset
+    )
+    return live_players.sort_values(by=['name']).reset_index(drop=True)
+
+
+def get_live_info(
+    bootstrap=None,
+    subset=[
+        'name', 'code', 'element', 'position', 'season', 'now_cost',
+        'chance_of_playing_this_round', 'chance_of_playing_next_round', 
+        'news'
+    ]
+):
+    
+    live_players = get_current_players(bootstrap, subset=subset)
+    live_players = live_players.rename(columns={'now_cost': 'value'})
+    live_players = live_players.fillna(-1)
+
+    return live_players
 
 
 # -------------------------------------- FULL UPDATE ------------------------------------- #
@@ -167,8 +214,12 @@ def update_database():
     update_table('players', players)  # overwrites this season's data
 
     # prices
+    prices = updated_prices()
+    update_table('prices', prices)
 
-
+    # live info
+    live_info = get_live_info()
+    update_table('live', live_info)
 
 
 if __name__ == "__main__":

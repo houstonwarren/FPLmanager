@@ -87,3 +87,18 @@ CREATE TABLE prices (
     gw INTEGER,
     PRIMARY KEY (code, season, gw, value)
 );
+
+DROP TABLE IF EXISTS live;
+
+CREATE TABLE live (
+    name VARCHAR(100),
+    code INTEGER,
+    element INTEGER,
+    position VARCHAR(3),
+    season VARCHAR(10),
+    value INTEGER,
+    chance_of_playing_this_round INTEGER,
+    chance_of_playing_next_round INTEGER,
+    news VARCHAR(100),
+    PRIMARY KEY (code)
+);
